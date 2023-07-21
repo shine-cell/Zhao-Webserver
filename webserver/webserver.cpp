@@ -2,10 +2,10 @@
 
 WebServer::WebServer()
 {
-    //http_conn类对象
+    // http_conn类对象
     users = new http_conn[MAX_FD];
 
-    //root文件夹路径
+    // root文件夹路径
     char server_path[200];
     getcwd(server_path, 200);
     char root[6] = "/root";
@@ -13,7 +13,7 @@ WebServer::WebServer()
     strcpy(m_root, server_path);
     strcat(m_root, root);
 
-    //定时器
+    // 定时器
     users_timer = new client_data[MAX_FD];
 }
 
@@ -40,36 +40,36 @@ void WebServer::init(int port, string user, string passWord, string databaseName
 
 void WebServer::log_write()
 {
-    //初始化日志
+    // 初始化日志
     Log::get_instance()->init("./ServerLog", 0, 2000, 800000, 800);
 }
 
 void WebServer::sql_pool()
 {
-    //初始化数据库连接池
+    // 初始化数据库连接池
     m_connPool = connection_pool::GetInstance();
     m_connPool->init("localhost", m_user, m_passWord, m_databaseName, 3306, m_sql_num, 0);
 
-    //初始化数据库读取表
+    // 初始化数据库读取表
     users->initmysql_result(m_connPool);
 }
 
 void WebServer::thread_pool()
 {
-    //线程池
+    // 线程池
     m_pool = new threadpool<http_conn>(1, m_connPool, m_thread_num);
 }
 
 void WebServer::eventListen()
 {
-    //网络编程基础步骤
+    // 网络编程基础步骤
     m_listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(m_listenfd >= 0);
 
-    //优雅关闭连接
+    // 优雅关闭连接
     struct linger tmp = {1, 1};
-    //调用close的时候不会立刻返回，内核会延迟一段时间，这个时间由tmp的第二值来决定，如果超时时间之前到达则发送完未发送的数据并得到另一端的确认
-    //否则会直接返回错误值，未发送数据丢失，兼顾性能和可用。
+    // 调用close的时候不会立刻返回，内核会延迟一段时间，这个时间由tmp的第二值来决定，如果超时时间之前到达则发送完未发送的数据并得到另一端的确认
+    // 否则会直接返回错误值，未发送数据丢失，兼顾性能和可用。
     setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
 
     int ret = 0;
@@ -88,7 +88,7 @@ void WebServer::eventListen()
 
     utils.init(TIMESLOT);
 
-    //epoll创建内核事件表
+    // epoll创建内核事件表
     epoll_event events[MAX_EVENT_NUMBER];
     m_epollfd = epoll_create(5);
     assert(m_epollfd != -1);
@@ -96,7 +96,7 @@ void WebServer::eventListen()
     utils.addfd(m_epollfd, m_listenfd, false, 1);
     http_conn::m_epollfd = m_epollfd;
 
-    ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);//创建双向管道
+    ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd); // 创建双向管道
     assert(ret != -1);
     utils.setnonblocking(m_pipefd[1]);
     utils.addfd(m_epollfd, m_pipefd[0], false, 0);
@@ -107,15 +107,15 @@ void WebServer::eventListen()
 
     alarm(TIMESLOT);
 
-    //工具类,信号和描述符基础操作
+    // 工具类,信号和描述符基础操作
     Utils::u_pipefd = m_pipefd;
     Utils::u_epollfd = m_epollfd;
 }
 
 void WebServer::timer(int connfd, struct sockaddr_in client_address)
 {
-    //初始化client_data数据
-    //创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
+    // 初始化client_data数据
+    // 创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
     users_timer[connfd].address = client_address;
     users_timer[connfd].sockfd = connfd;
     heap_timer *timer = new heap_timer;
@@ -125,16 +125,16 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address)
     timer->expire = cur + 3 * TIMESLOT;
     users_timer[connfd].timer = timer;
     utils.m_timer_lst.add_timer(timer);
-    //初始化connfd对象
+    // 初始化connfd对象
     users[connfd].init(connfd, client_address, m_root, 1, 0, m_user, m_passWord, m_databaseName, timer);
 }
 
-//若有数据传输，则将定时器往后延迟3个单位
-//并对新的定时器在链表上的位置进行调整
+// 若有数据传输，则将定时器往后延迟3个单位
+// 并对新的定时器在链表上的位置进行调整
 void WebServer::adjust_timer(heap_timer *timer)
 {
     time_t cur = time(NULL);
-    timer->expire = cur + 3 * TIMESLOT;//这里使用的是绝对时间
+    timer->expire = cur + 3 * TIMESLOT; // 这里使用的是绝对时间
     utils.m_timer_lst.adjust_timer(timer);
 
     LOG_INFO("%s", "adjust timer once");
@@ -142,7 +142,8 @@ void WebServer::adjust_timer(heap_timer *timer)
 
 void WebServer::deal_timer(heap_timer *timer, int sockfd)
 {
-    if(timer->cb_func != NULL) { //这里需要进行判断，因为定时器可能使用了延迟删除方法
+    if (timer->cb_func != NULL)
+    { // 这里需要进行判断，因为定时器可能使用了延迟删除方法
         timer->cb_func(&users_timer[sockfd]);
     }
 
@@ -218,19 +219,19 @@ void WebServer::dealwithread(int sockfd)
 {
     heap_timer *timer = users_timer[sockfd].timer;
 
-    //reactor
+    // reactor
     if (timer)
     {
         adjust_timer(timer);
     }
-    //若监测到读事件，将该事件放入请求队列
+    // 若监测到读事件，将该事件放入请求队列
     m_pool->append(users + sockfd, 0);
 }
 
 void WebServer::dealwithwrite(int sockfd)
 {
     heap_timer *timer = users_timer[sockfd].timer;
-    //reactor
+    // reactor
     if (timer)
     {
         adjust_timer(timer);
@@ -256,7 +257,7 @@ void WebServer::eventLoop()
         {
             int sockfd = events[i].data.fd;
 
-            //处理新到的客户连接
+            // 处理新到的客户连接
             if (sockfd == m_listenfd)
             {
                 bool flag = dealclinetdata();
@@ -265,18 +266,18 @@ void WebServer::eventLoop()
             }
             else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
             {
-                //服务器端关闭连接，移除对应的定时器
+                // 服务器端关闭连接，移除对应的定时器
                 heap_timer *timer = users_timer[sockfd].timer;
                 deal_timer(timer, sockfd);
             }
-            //处理信号
+            // 处理信号
             else if ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN))
             {
                 bool flag = dealwithsignal(timeout, stop_server);
                 if (false == flag)
                     LOG_ERROR("%s", "dealclientdata failure");
             }
-            //处理客户连接上接收到的数据
+            // 处理客户连接上接收到的数据
             else if (events[i].events & EPOLLIN)
             {
                 dealwithread(sockfd);
