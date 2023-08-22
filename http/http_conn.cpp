@@ -50,7 +50,7 @@ void http_conn::initmysql_result(connection_pool *connPool)
 // 对文件描述符设置非阻塞
 int setnonblocking(int fd)
 {
-    int old_option = fcntl(fd, F_GETFL);
+    int old_option = fcntl(fd, F_GETFL); // 使用 fcntl 函数获取文件描述符的当前状态标志
     int new_option = old_option | O_NONBLOCK;
     fcntl(fd, F_SETFL, new_option);
     return old_option;
